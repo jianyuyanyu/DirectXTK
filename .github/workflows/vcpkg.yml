@@ -41,7 +41,7 @@ jobs:
             arch: amd64_arm64
 
     steps:
-    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+    - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
     - name: 'Install Ninja'
       run: choco install ninja
@@ -81,7 +81,7 @@ jobs:
       with:
         runVcpkgInstall: true
         vcpkgJsonGlob: '**/build/vcpkg.json'
-        vcpkgGitCommitId: '7516a02de04e8f8ff4e4beb8f5bac0565f9bf9da'
+        vcpkgGitCommitId: '${{ vars.VCPKG_COMMIT_ID }}'
 
     - name: 'Configure CMake'
       working-directory: ${{ github.workspace }}

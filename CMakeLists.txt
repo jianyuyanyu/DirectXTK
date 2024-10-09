@@ -32,6 +32,8 @@ option(DISABLE_MSVC_ITERATOR_DEBUGGING "Disable iterator debugging in Debug conf
 
 option(ENABLE_CODE_ANALYSIS "Use Static Code Analysis on build" OFF)
 
+option(ENABLE_CODE_COVERAGE "Build with code-coverage" OFF)
+
 option(USE_PREBUILT_SHADERS "Use externally built HLSL shaders" OFF)
 
 option(NO_WCHAR_T "Use legacy wide-character as unsigned short" OFF)
@@ -86,6 +88,7 @@ set(LIBRARY_SOURCES
     Src/BasicEffect.cpp
     Src/BasicPostProcess.cpp
     Src/BufferHelpers.cpp
+    Src/CMO.h
     Src/CommonStates.cpp
     Src/DDSTextureLoader.cpp
     Src/DebugEffect.cpp
@@ -367,6 +370,7 @@ if(BUILD_TOOLS AND WIN32)
     xwbtool/xwbtool.cpp
     xwbtool/xwbtool.rc
     xwbtool/settings.manifest
+    xwbtool/CmdLineHelpers.h
     Audio/WAVFileReader.cpp
     Audio/WAVFileReader.h)
   target_compile_features(xwbtool PRIVATE cxx_std_17)
@@ -379,6 +383,10 @@ if(directxmath_FOUND)
     foreach(t IN LISTS TOOL_EXES ITEMS ${PROJECT_NAME})
       target_link_libraries(${t} PUBLIC Microsoft::DirectXMath)
     endforeach()
+endif()
+
+if(TOOL_EXES)
+  message(STATUS "Building tools: ${TOOL_EXES}")
 endif()
 
 # Model uses dynamic_cast, so we need /GR (Enable RTTI)
@@ -428,6 +436,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 14)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     if(ENABLE_CODE_ANALYSIS)
+      message(STATUS "Building with Code Analysis (PREFIX)")
       foreach(t IN LISTS TOOL_EXES ITEMS ${PROJECT_NAME})
         target_compile_options(${t} PRIVATE /analyze /WX)
       endforeach()
@@ -451,13 +460,16 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
       target_compile_options(${t} PRIVATE ${WarningsEXE})
     endforeach()
 
-    if(BUILD_FUZZING
-        AND (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.32)
-        AND (NOT WINDOWS_STORE))
-          foreach(t IN LISTS TOOL_EXES ITEMS ${PROJECT_NAME})
-            target_compile_options(${t} PRIVATE ${ASAN_SWITCHES})
-            target_link_libraries(${t} PRIVATE ${ASAN_LIBS})
-          endforeach()
+    if(BUILD_FUZZING AND (NOT WINDOWS_STORE))
+      string(REPLACE "/DNDEBUG" "" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
+      string(REPLACE "/DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+
+      if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.32)
+        foreach(t IN LISTS TOOL_EXES ITEMS ${PROJECT_NAME})
+          target_compile_options(${t} PRIVATE ${ASAN_SWITCHES})
+          target_link_libraries(${t} PRIVATE ${ASAN_LIBS})
+        endforeach()
+      endif()
     endif()
 endif()
 
@@ -509,6 +521,10 @@ if(WIN32 AND (NOT WINDOWS_STORE) AND (NOT (DEFINED XBOX_CONSOLE_TARGET)))
     if(BUILD_TESTING AND (EXISTS "${CMAKE_CURRENT_LIST_DIR}/Tests/CMakeLists.txt"))
         enable_testing()
         add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Tests)
+
+        if(ENABLE_CODE_COVERAGE AND (DEFINED COV_COMPILER_SWITCHES))
+          target_compile_options(${PROJECT_NAME} PRIVATE ${COV_COMPILER_SWITCHES})
+        endif()
     elseif(BUILD_FUZZING AND (EXISTS "${CMAKE_CURRENT_LIST_DIR}/Tests/fuzzloaders/CMakeLists.txt"))
         message(STATUS "Building for fuzzing")
         add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Tests/fuzzloaders)
