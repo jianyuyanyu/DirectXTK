@@ -442,7 +442,10 @@ if(directxmath_FOUND)
     endforeach()
 endif()
 
-if(TOOL_EXES)
+if (BUILD_TOOLS AND (CMAKE_GENERATOR MATCHES "Visual Studio"))
+  message(STATUS "Building tools: MakeSpriteFont;${TOOL_EXES}")
+  add_subdirectory(MakeSpriteFont)
+elseif(TOOL_EXES)
   message(STATUS "Building tools: ${TOOL_EXES}")
 endif()
 
